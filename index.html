@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Interactive introduction to tessellation, symmetry, and star-pattern construction in Islamic geometric art (ARH 2050).">
+<title>Islamic Tessellation Workbench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Albert+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a sequence of four "workbench" stations, each a two-column bench (notes + controls | drawing surface) that stacks on phones */
+:root {
+  --bg: #EDF1F2;        /* cool lime plaster */
+  --surface: #F8FAFA;
+  --ink: #172238;
+  --muted: #56627A;
+  --line: #C9D2D8;
+  --lapis: #24408E;     /* lapis glaze */
+  --glaze: #12857E;     /* turquoise glaze */
+  --ochre: #A9741A;
+  --tile-a: #DCE5F3;
+  --tile-b: #D3EBE7;
+  --gap: #F1DCC0;
+  --font-display: "Amiri", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-body: "Albert Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C1323; --surface: #131C30; --ink: #E5E9F0; --muted: #9AA6BD; --line: #28344E;
+    --lapis: #93A9F2; --glaze: #4CC3B5; --ochre: #E2AF52;
+    --tile-a: #1F2D52; --tile-b: #173B3C; --gap: #4A3517;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0C1323; --surface: #131C30; --ink: #E5E9F0; --muted: #9AA6BD; --line: #28344E;
+  --lapis: #93A9F2; --glaze: #4CC3B5; --ochre: #E2AF52;
+  --tile-a: #1F2D52; --tile-b: #173B3C; --gap: #4A3517;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { color-scheme: light; }
+body { margin: 0; }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+}
+.wrap {
+  max-width: 1120px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; text-wrap: balance; margin: 0; line-height: 1.1; }
+p { margin: 0; max-width: 62ch; }
+.eyebrow {
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--glaze);
+}
+
+/* Hero */
+.hero { padding-block: 48px 8px; display: grid; gap: 16px; }
+.hero h1 { font-size: clamp(40px, 7vw, 76px); letter-spacing: -0.01em; }
+.hero h1 em { font-style: italic; font-weight: 400; color: var(--lapis); }
+.hero .lede { font-size: 18px; color: var(--muted); }
+.hero-canvas {
+  margin-top: 16px; height: clamp(200px, 32vw, 340px);
+  border-block: 1px solid var(--line);
+}
+.hero-canvas canvas { display: block; width: 100%; height: 100%; }
+.roadmap { display: flex; flex-wrap: wrap; gap: 8px 24px; padding-block: 16px 8px; font-size: 14px; color: var(--muted); }
+.roadmap a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line); }
+.roadmap a:hover, .roadmap a:focus-visible { border-color: var(--glaze); }
+.roadmap b { font-family: var(--font-mono); font-weight: 500; color: var(--glaze); margin-right: 6px; }
+
+/* Stations */
+.station { padding-block: 56px; border-bottom: 1px solid var(--line); }
+.station:last-of-type { border-bottom: 0; }
+.bench { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 32px; align-items: start; }
+@media (max-width: 820px) { .bench { grid-template-columns: minmax(0, 1fr); gap: 20px; } }
+.notes { display: grid; gap: 16px; min-width: 0; }
+.notes h2 { font-size: clamp(30px, 4vw, 40px); }
+.num { font-family: var(--font-mono); font-size: 13px; color: var(--muted); letter-spacing: .08em; }
+.term { font-weight: 600; }
+.surface {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 4px;
+  aspect-ratio: 4 / 3; max-width: 100%; min-width: 0; position: relative; overflow: hidden;
+}
+.surface canvas { display: block; width: 100%; height: 100%; }
+.surface .tag {
+  position: absolute; left: 12px; bottom: 10px; font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+  background: var(--surface); padding: 2px 6px; border-radius: 2px;
+}
+
+/* Controls */
+.control { display: grid; gap: 8px; }
+.control > .label { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button {
+  font: 500 14px/1 var(--font-body); color: var(--ink); background: transparent;
+  border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; cursor: pointer;
+}
+.seg button:hover { border-color: var(--lapis); }
+.seg button[aria-pressed="true"] { background: var(--lapis); border-color: var(--lapis); color: var(--surface); }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--glaze); outline-offset: 2px; }
+.row { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; }
+.check { display: inline-flex; gap: 8px; align-items: center; font-size: 15px; cursor: pointer; }
+.check input { accent-color: var(--lapis); width: 18px; height: 18px; }
+input[type="range"] { width: 100%; accent-color: var(--lapis); }
+.play {
+  font: 600 14px/1 var(--font-body); color: var(--lapis); background: transparent; border: 1px solid var(--lapis);
+  border-radius: 999px; padding: 9px 16px; cursor: pointer;
+}
+.play:hover { background: var(--tile-a); }
+
+.readout {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 1px;
+  background: var(--line); border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+}
+.readout div { background: var(--surface); padding: 10px 12px; }
+.readout dt { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.readout dd { margin: 2px 0 0; font-family: var(--font-mono); font-size: 18px; font-variant-numeric: tabular-nums; }
+.readout dd.ok { color: var(--glaze); }
+.readout dd.warn { color: var(--ochre); }
+.verdict { font-size: 15px; border-left: 3px solid var(--glaze); padding-left: 12px; }
+.verdict.warn { border-color: var(--ochre); }
+
+.try {
+  font-size: 15px; color: var(--ink); background: transparent; display: grid; gap: 6px;
+  border-top: 1px dashed var(--line); padding-top: 14px;
+}
+.try strong { font-family: var(--font-display); font-size: 19px; font-weight: 700; color: var(--lapis); }
+.try ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+
+/* Closing */
+.closing { padding-block: 56px 72px; display: grid; gap: 24px; }
+.closing h2 { font-size: clamp(30px, 4vw, 40px); }
+.glossary { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px 32px; margin: 0; }
+.glossary dt { font-family: var(--font-display); font-size: 20px; font-weight: 700; }
+.glossary dd { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
+footer { font-size: 13px; color: var(--muted); padding-block: 0 40px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <span class="eyebrow">ARH 2050 · Chapter 10 · The Islamic World</span>
+    <h1>How a grid becomes <em>a star</em></h1>
+    <p class="lede">Islamic geometric patterns look endlessly complex, but most start from a few simple rules: shapes that fit together without gaps, a handful of symmetry moves, and lines drawn across a hidden grid. Work through the four stations below to build one yourself.</p>
+  </header>
+</div>
+<div class="hero-canvas" aria-hidden="true"><canvas id="heroCanvas"></canvas></div>
+<div class="wrap">
+  <nav class="roadmap" aria-label="Stations">
+    <a href="#angles"><b>1</b>Why some shapes tile</a>
+    <a href="#grids"><b>2</b>The hidden grids</a>
+    <a href="#symmetry"><b>3</b>Repeat by moving</a>
+    <a href="#stars"><b>4</b>From grid to star</a>
+  </nav>
+
+  <!-- Station 1 -->
+  <section class="station" id="angles">
+    <div class="bench">
+      <div class="notes">
+        <span class="num">Station 1 of 4</span>
+        <h2>Why some shapes tile</h2>
+        <p>A <span class="term">tessellation</span> covers a flat surface with shapes that leave no gaps and never overlap. The test happens at every corner: the angles meeting at a point must add up to exactly 360°.</p>
+        <div class="control">
+          <span class="label">Regular polygon</span>
+          <div class="seg" id="polyPick" role="group" aria-label="Choose a polygon"></div>
+        </div>
+        <dl class="readout" id="angleReadout"></dl>
+        <p class="verdict" id="angleVerdict"></p>
+        <div class="try">
+          <strong>Try this</strong>
+          <ul>
+            <li>Only three regular polygons tile on their own. Find all three.</li>
+            <li>Choose the octagon. What shape would fill the gap it leaves?</li>
+          </ul>
+        </div>
+      </div>
+      <div class="surface"><canvas id="angleCanvas" role="img" aria-label="Copies of the chosen polygon arranged around a single corner point"></canvas><span class="tag" id="angleTag"></span></div>
+    </div>
+  </section>
+
+  <!-- Station 2 -->
+  <section class="station" id="grids">
+    <div class="bench">
+      <div class="notes">
+        <span class="num">Station 2 of 4</span>
+        <h2>The hidden grids</h2>
+        <p>Spread the shapes that pass the 360° test across a whole wall and you get a grid. Craftsmen laid out patterns on grids like these, then erased them from the finished design. Mixing polygons, as with octagons and squares, opens up many more grids.</p>
+        <p>Each grid is named by the polygons met going around one corner. <span class="term">4.8.8</span> means a square, an octagon, and another octagon.</p>
+        <div class="control">
+          <span class="label">Grid</span>
+          <div class="seg" id="gridPick" role="group" aria-label="Choose a grid"></div>
+        </div>
+        <p class="verdict" id="gridNote"></p>
+        <div class="try">
+          <strong>Try this</strong>
+          <ul>
+            <li>Pick any corner in the drawing and add up its angles.</li>
+            <li>Which grid has the most different polygons meeting at one point?</li>
+          </ul>
+        </div>
+      </div>
+      <div class="surface"><canvas id="gridCanvas" role="img" aria-label="A repeating grid of polygons"></canvas><span class="tag" id="gridTag"></span></div>
+    </div>
+  </section>
+
+  <!-- Station 3 -->
+  <section class="station" id="symmetry">
+    <div class="bench">
+      <div class="notes">
+        <span class="num">Station 3 of 4</span>
+        <h2>Repeat by moving</h2>
+        <p>Every repeating pattern is one small motif copied by three kinds of moves. <span class="term">Translation</span> slides it. <span class="term">Rotation</span> turns it around a point. <span class="term">Reflection</span> flips it across a line, like a mirror.</p>
+        <p>The highlighted square is the <span class="term">repeat unit</span>. Translation is always on: it copies the unit across the plane. Add the other moves to see how they fill the unit.</p>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="symRot"> Rotate 90°</label>
+          <label class="check"><input type="checkbox" id="symRef"> Reflect</label>
+        </div>
+        <dl class="readout" id="symReadout"></dl>
+        <p class="verdict" id="symNote"></p>
+        <div class="try">
+          <strong>Try this</strong>
+          <ul>
+            <li>Turn on both moves. How many copies of the dark-blue motif sit in one repeat unit?</li>
+            <li>Find a mirror line in the finished pattern. Then find a point you could spin it around.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="surface"><canvas id="symCanvas" role="img" aria-label="A leaf motif repeated by translation, rotation and reflection"></canvas><span class="tag" id="symTag"></span></div>
+    </div>
+  </section>
+
+  <!-- Station 4 -->
+  <section class="station" id="stars">
+    <div class="bench">
+      <div class="notes">
+        <span class="num">Station 4 of 4</span>
+        <h2>From grid to star</h2>
+        <p>Here is one way to turn a grid into a star pattern. From the midpoint of every edge, draw two lines into each polygon at the same angle, and stop each line where it meets its neighbor. Then hide the grid. This is called the <span class="term">polygons-in-contact</span> method; the British scientist E. H. Hankin described it in the 1920s after studying patterns in India and the Middle East.</p>
+        <div class="control">
+          <span class="label">Grid</span>
+          <div class="seg" id="starGridPick" role="group" aria-label="Choose a starting grid"></div>
+        </div>
+        <div class="control">
+          <label class="label" for="starAngle">Contact angle <span id="starAngleVal" style="font-family:var(--font-mono);color:var(--ink)"></span></label>
+          <input type="range" id="starAngle" min="20" max="85" step="0.5" value="67.5">
+        </div>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="starGrid" checked> Show grid</label>
+          <label class="check"><input type="checkbox" id="starBand" checked> Strapwork band</label>
+          <button class="play" id="starPlay" type="button">Sweep the angle</button>
+        </div>
+        <div class="try">
+          <strong>Try this</strong>
+          <ul>
+            <li>Start with octagons &amp; squares at 67.5°, then hide the grid. Which star appears?</li>
+            <li>Switch to hexagons. How many points do the stars have now, and why?</li>
+            <li>Find an angle where the lines make crosses instead of stars.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="surface"><canvas id="starCanvas" role="img" aria-label="A star pattern drawn over a polygon grid"></canvas><span class="tag" id="starTag"></span></div>
+    </div>
+  </section>
+
+  <section class="closing">
+    <h2>Take it back to the monuments</h2>
+    <p>Islamic religious art largely avoided figures of people and animals, and geometry, the arabesque, and calligraphy carried much of the decorative work instead. As you look at the tile panels of the Alhambra or the carved screens of a mosque, try to find the hidden grid, the repeat unit, and the symmetry moves you practiced here.</p>
+    <dl class="glossary">
+      <div><dt>Tessellation</dt><dd>A covering of a flat surface by shapes with no gaps or overlaps.</dd></div>
+      <div><dt>Repeat unit</dt><dd>The smallest piece that, slid in two directions, rebuilds the whole pattern.</dd></div>
+      <div><dt>Strapwork</dt><dd>Lines drawn as bands that weave over and under each other, common in tile and wood.</dd></div>
+      <div><dt>Zellij</dt><dd>Mosaic of hand-cut glazed tile pieces, used in the Maghrib and Nasrid Spain.</dd></div>
+      <div><dt>Girih</dt><dd>Persian for "knot"; star-and-polygon strapwork patterns and the tile shapes used to draw them.</dd></div>
+      <div><dt>Arabesque</dt><dd>Flowing, branching vegetal ornament, often set inside geometric frames.</dd></div>
+    </dl>
+  </section>
+</div>
+<div class="wrap"><footer>Made for ARH 2050 · Kleiner, <i>Art through the Ages</i>, 16th ed., Chapter 10.</footer></div>
+
+<script>
+(() => {
+  const TAU = Math.PI * 2;
+  const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let C = {};
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    ["bg","surface","ink","muted","line","lapis","glaze","ochre","tile-a","tile-b","gap"].forEach(k => C[k] = cs.getPropertyValue("--" + k).trim());
+  }
+  readColors();
+
+  // ---------- canvas helper ----------
+  const surfaces = [];
+  function surface(id, draw) {
+    const cv = document.getElementById(id);
+    const ctx = cv.getContext("2d");
+    const s = { cv, ctx, w: 0, h: 0, draw };
+    s.render = () => {
+      const r = cv.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
+      if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+      s.w = r.width; s.h = r.height;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, s.w, s.h);
+      draw(ctx, s.w, s.h);
+    };
+    surfaces.push(s);
+    if (window.ResizeObserver) new ResizeObserver(() => s.render()).observe(cv);
+    return s;
+  }
+  function renderAll() { readColors(); surfaces.forEach(s => s.render()); }
+  if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
+  new MutationObserver(renderAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  window.addEventListener("resize", () => surfaces.forEach(s => s.render()));
+
+  function segmented(containerId, items, initial, onPick) {
+    const box = document.getElementById(containerId);
+    let current = initial;
+    items.forEach(it => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = it.label; b.dataset.key = it.key;
+      b.setAttribute("aria-pressed", String(it.key === initial));
+      b.addEventListener("click", () => {
+        current = it.key;
+        box.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.key === it.key)));
+        onPick(it.key);
+      });
+      box.appendChild(b);
+    });
+    return () => current;
+  }
+
+  // ---------- geometry ----------
+  function regular(cx, cy, n, R, rot) {
+    const pts = [];
+    for (let k = 0; k < n; k++) { const a = rot + TAU * k / n; pts.push([cx + R * Math.cos(a), cy + R * Math.sin(a)]); }
+    return { c: [cx, cy], pts, n };
+  }
+  function pathPoly(ctx, pts) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); }
+
+  // Tilings centered on (0,0), covering half-extents hw, hh, edge length s.
+  const TILINGS = {
+    "4.4.4.4": { label: "Squares", note: "Four squares meet at every corner: 90° × 4 = 360°.", gen(s, hw, hh) {
+      const out = [], n = Math.ceil(Math.max(hw, hh) / s) + 2, R = s / Math.SQRT2;
+      for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) out.push(regular(i * s, j * s, 4, R, Math.PI / 4));
+      return out; } },
+    "3.3.3.3.3.3": { label: "Triangles", note: "Six triangles meet at every corner: 60° × 6 = 360°.", gen(s, hw, hh) {
+      const out = [], h = s * Math.sqrt(3) / 2, n = Math.ceil(Math.max(hw, hh) / h) + 3;
+      const p = (i, j) => [i * s + j * s / 2, j * h];
+      for (let j = -n; j <= n; j++) for (let i = -n - Math.ceil(j / 2) - 2; i <= n - Math.floor(j / 2) + 2; i++) {
+        const a = p(i, j), b = p(i + 1, j), c = p(i, j + 1), d = p(i + 1, j + 1);
+        out.push(tri([a, b, c])); out.push(tri([b, d, c]));
+      }
+      return out; } },
+    "6.6.6": { label: "Hexagons", note: "Three hexagons meet at every corner: 120° × 3 = 360°.", gen(s, hw, hh) {
+      const out = [], n = Math.ceil(Math.max(hw, hh) / s) + 2, dx = Math.sqrt(3) * s;
+      for (let j = -n; j <= n; j++) for (let i = -n - Math.ceil(j / 2); i <= n - Math.floor(j / 2); i++)
+        out.push(regular(i * dx + j * dx / 2, j * 1.5 * s, 6, s, Math.PI / 6));
+      return out; } },
+    "4.8.8": { label: "Octagons & squares", note: "An octagon leaves a 90° gap, so a square fills it: 135° + 135° + 90° = 360°.", gen(s, hw, hh) {
+      const out = [], w = s * (1 + Math.SQRT2), n = Math.ceil(Math.max(hw, hh) / w) + 2;
+      const R8 = s / (2 * Math.sin(Math.PI / 8));
+      for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
+        out.push(regular(i * w, j * w, 8, R8, Math.PI / 8));
+        out.push(regular((i + .5) * w, (j + .5) * w, 4, s / Math.SQRT2, 0));
+      }
+      return out; } },
+    "3.6.3.6": { label: "Hexagons & triangles", note: "Two hexagons and two triangles alternate around each corner: 120° + 60° + 120° + 60° = 360°.", gen(s, hw, hh) {
+      const out = [], n = Math.ceil(Math.max(hw, hh) / (2 * s)) + 2, r3 = s / Math.sqrt(3);
+      for (let j = -n; j <= n; j++) for (let i = -n - Math.ceil(j / 2); i <= n - Math.floor(j / 2); i++) {
+        const cx = i * 2 * s + j * s, cy = j * Math.sqrt(3) * s;
+        out.push(regular(cx, cy, 6, s, 0));
+        out.push(regular(cx + s, cy + s / Math.sqrt(3), 3, r3, Math.PI / 6));
+        out.push(regular(cx + 2 * s, cy + 2 * s / Math.sqrt(3), 3, r3, Math.PI / 2));
+      }
+      return out; } },
+  };
+  function tri(pts) { return { c: [(pts[0][0] + pts[1][0] + pts[2][0]) / 3, (pts[0][1] + pts[1][1] + pts[2][1]) / 3], pts, n: 3 }; }
+  function visible(polys, hw, hh, pad) { return polys.filter(p => Math.abs(p.c[0]) < hw + pad && Math.abs(p.c[1]) < hh + pad); }
+
+  function drawGrid(ctx, polys, opts) {
+    polys.forEach(p => {
+      pathPoly(ctx, p.pts);
+      if (opts.fill) { ctx.fillStyle = opts.fill(p); ctx.fill(); }
+      ctx.strokeStyle = opts.stroke; ctx.lineWidth = opts.lw; ctx.stroke();
+    });
+  }
+
+  // Polygons-in-contact (Hankin) segments
+  function hankin(polys, thetaDeg) {
+    const th = thetaDeg * Math.PI / 180, segs = [];
+    const rot = (v, a) => [v[0] * Math.cos(a) - v[1] * Math.sin(a), v[0] * Math.sin(a) + v[1] * Math.cos(a)];
+    const norm = v => { const l = Math.hypot(v[0], v[1]); return [v[0] / l, v[1] / l]; };
+    const inward = (dir, M, c) => { const a = rot(dir, th), b = rot(dir, -th); return ((c[0] - M[0]) * a[0] + (c[1] - M[1]) * a[1]) > ((c[0] - M[0]) * b[0] + (c[1] - M[1]) * b[1]) ? a : b; };
+    polys.forEach(p => {
+      const V = p.pts, n = V.length, M = [];
+      for (let i = 0; i < n; i++) { const a = V[i], b = V[(i + 1) % n]; M.push([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]); }
+      for (let i = 0; i < n; i++) {
+        const v1 = V[(i + 1) % n], m1 = M[i], m2 = M[(i + 1) % n];
+        const d1 = inward(norm([v1[0] - V[i][0], v1[1] - V[i][1]]), m1, p.c);
+        const v2 = V[(i + 2) % n];
+        const d2 = inward(norm([v1[0] - v2[0], v1[1] - v2[1]]), m2, p.c);
+        const den = d1[0] * d2[1] - d1[1] * d2[0];
+        if (Math.abs(den) < 1e-9) continue;
+        const t = ((m2[0] - m1[0]) * d2[1] - (m2[1] - m1[1]) * d2[0]) / den;
+        const u = ((m2[0] - m1[0]) * d1[1] - (m2[1] - m1[1]) * d1[0]) / den;
+        if (t <= 0 || u <= 0) continue;
+        const P = [m1[0] + t * d1[0], m1[1] + t * d1[1]];
+        segs.push([m1, P, m2]);
+      }
+    });
+    return segs;
+  }
+  function drawHankin(ctx, segs, band, colorA, bg, lw) {
+    const stroke = (w, col) => {
+      ctx.beginPath();
+      segs.forEach(s => { ctx.moveTo(s[0][0], s[0][1]); ctx.lineTo(s[1][0], s[1][1]); ctx.lineTo(s[2][0], s[2][1]); });
+      ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineJoin = "miter"; ctx.miterLimit = 6; ctx.lineCap = "butt"; ctx.stroke();
+    };
+    if (band) { stroke(lw * 3.2, colorA); stroke(lw * 1.4, bg); }
+    else stroke(lw, colorA);
+  }
+
+  // ---------- Hero ----------
+  let heroTheta = 67.5, heroT = 0;
+  const hero = surface("heroCanvas", (ctx, w, h) => {
+    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, w, h);
+    ctx.save(); ctx.translate(w / 2, h / 2);
+    const s = Math.max(26, Math.min(44, w / 26)), hw = w / 2, hh = h / 2;
+    const polys = visible(TILINGS["4.8.8"].gen(s, hw, hh), hw, hh, s * 3);
+    drawGrid(ctx, polys, { stroke: C.line, lw: 1 });
+    drawHankin(ctx, hankin(polys, heroTheta), true, C.lapis, C.bg, 2.2);
+    ctx.restore();
+  });
+  if (!reduceMotion) {
+    let last = performance.now();
+    const loop = now => {
+      heroT += (now - last) / 1000; last = now;
+      heroTheta = 60 + 14 * Math.sin(heroT * 0.35);
+      hero.render();
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- Station 1: angles ----------
+  const POLYS = [3, 4, 5, 6, 7, 8, 12];
+  const NAMES = { 3: "Triangle", 4: "Square", 5: "Pentagon", 6: "Hexagon", 7: "Heptagon", 8: "Octagon", 12: "Dodecagon" };
+  let polyN = 5;
+  const fillerFor = gap => { for (const n of [3, 4, 5, 6]) if (Math.abs(gap - 180 * (n - 2) / n) < 0.01) return n; return null; };
+  const angleS = surface("angleCanvas", (ctx, w, h) => {
+    const n = polyN, alpha = 180 * (n - 2) / n, k = Math.floor(360 / alpha + 1e-9), gap = 360 - k * alpha;
+    const L = Math.min(w, h) * (n >= 8 ? 0.2 : 0.3);
+    const R = L / (2 * Math.sin(Math.PI / n));
+    const a = alpha * Math.PI / 180, start = -Math.PI / 2 - a / 2;
+    ctx.save(); ctx.translate(w / 2, h / 2);
+    const drawAt = (m, nn, fill, dashed) => {
+      const aa = 180 * (nn - 2) / nn * Math.PI / 180, RR = L / (2 * Math.sin(Math.PI / nn));
+      const phi = m + aa / 2, cx = RR * Math.cos(phi), cy = RR * Math.sin(phi);
+      const p = regular(cx, cy, nn, RR, phi + Math.PI);
+      pathPoly(ctx, p.pts);
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      ctx.setLineDash(dashed ? [6, 5] : []);
+      ctx.strokeStyle = dashed ? C.ochre : C.ink; ctx.lineWidth = dashed ? 1.5 : 1.5; ctx.stroke();
+      ctx.setLineDash([]);
+    };
+    for (let i = 0; i < k; i++) drawAt(start + i * a, n, i % 2 ? C["tile-b"] : C["tile-a"], false);
+    if (gap > 0.01) {
+      const g0 = start + k * a, g1 = g0 + gap * Math.PI / 180;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, L * 0.9, g0, g1); ctx.closePath();
+      ctx.fillStyle = C.gap; ctx.fill();
+      const f = fillerFor(gap);
+      if (f) drawAt(g0, f, null, true);
+      // gap label
+      const mid = (g0 + g1) / 2;
+      ctx.fillStyle = C.ochre; ctx.font = "500 13px " + getComputedStyle(document.body).getPropertyValue("--font-mono");
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(gap.toFixed(gap % 1 ? 1 : 0) + "° gap", Math.cos(mid) * L * 0.55, Math.sin(mid) * L * 0.55);
+    }
+    // angle arcs
+    for (let i = 0; i < k; i++) {
+      ctx.beginPath(); ctx.arc(0, 0, 18, start + i * a + 0.06, start + (i + 1) * a - 0.06);
+      ctx.strokeStyle = C.glaze; ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(0, 0, 4, 0, TAU); ctx.fillStyle = C.ink; ctx.fill();
+    ctx.restore();
+  });
+  function updateAngles() {
+    const n = polyN, alpha = 180 * (n - 2) / n, k = Math.floor(360 / alpha + 1e-9), total = k * alpha, gap = 360 - total;
+    const fmt = v => (Math.abs(v - Math.round(v)) < 0.01 ? Math.round(v) : v.toFixed(1)) + "°";
+    const tiles = gap < 0.01;
+    document.getElementById("angleReadout").innerHTML =
+      `<div><dt>Each corner</dt><dd>${fmt(alpha)}</dd></div>` +
+      `<div><dt>Copies that fit</dt><dd>${k}</dd></div>` +
+      `<div><dt>Total</dt><dd class="${tiles ? "ok" : "warn"}">${fmt(total)}</dd></div>` +
+      `<div><dt>Left over</dt><dd class="${tiles ? "ok" : "warn"}">${fmt(gap)}</dd></div>`;
+    const v = document.getElementById("angleVerdict");
+    const f = fillerFor(gap);
+    v.classList.toggle("warn", !tiles);
+    if (tiles) v.textContent = `${NAMES[n]}s tile on their own. ${k} × ${fmt(alpha)} = 360°, with nothing left over.`;
+    else if (f) v.textContent = `${NAMES[n]}s alone leave a ${fmt(gap)} gap, but that is exactly the corner of a ${NAMES[f].toLowerCase()}. Mix the two shapes and the plane fills.`;
+    else v.textContent = `${NAMES[n]}s cannot tile alone. ${k} copies leave a ${fmt(gap)} gap, and one more would overlap.`;
+    document.getElementById("angleTag").textContent = `${NAMES[n].toLowerCase()} · interior angle = 180° × (${n} − 2) ÷ ${n}`;
+    angleS.render();
+  }
+  segmented("polyPick", POLYS.map(n => ({ key: n, label: NAMES[n] })), polyN, n => { polyN = n; updateAngles(); });
+  updateAngles();
+
+  // ---------- Station 2: grids ----------
+  let gridKey = "4.8.8";
+  const gridS = surface("gridCanvas", (ctx, w, h) => {
+    ctx.save(); ctx.translate(w / 2, h / 2);
+    const s = Math.max(30, Math.min(56, w / 11)), hw = w / 2, hh = h / 2;
+    const polys = visible(TILINGS[gridKey].gen(s, hw, hh), hw, hh, s * 2);
+    const fills = { 3: C.gap, 4: C["tile-b"], 6: C["tile-a"], 8: C["tile-a"] };
+    drawGrid(ctx, polys, { stroke: C.ink, lw: 1.2, fill: p => fills[p.n] });
+    // mark the vertex nearest center
+    let best = null, bd = Infinity;
+    polys.forEach(p => p.pts.forEach(v => { const d = Math.hypot(v[0], v[1]); if (d < bd) { bd = d; best = v; } }));
+    if (best) {
+      ctx.beginPath(); ctx.arc(best[0], best[1], 9, 0, TAU); ctx.strokeStyle = C.glaze; ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(best[0], best[1], 3, 0, TAU); ctx.fillStyle = C.glaze; ctx.fill();
+    }
+    ctx.restore();
+  });
+  function updateGrid() {
+    document.getElementById("gridNote").textContent = TILINGS[gridKey].note;
+    document.getElementById("gridTag").textContent = gridKey + " · circled corner = 360°";
+    gridS.render();
+  }
+  segmented("gridPick", Object.keys(TILINGS).map(k => ({ key: k, label: TILINGS[k].label })), gridKey, k => { gridKey = k; updateGrid(); });
+  updateGrid();
+
+  // ---------- Station 3: symmetry ----------
+  const T = { id: [1, 0, 0, 1], r90: [0, 1, -1, 0], r180: [-1, 0, 0, -1], r270: [0, -1, 1, 0], mx: [-1, 0, 0, 1], my: [1, 0, 0, -1], d1: [0, 1, 1, 0], d2: [0, -1, -1, 0] };
+  const GROUPS = {
+    "00": { name: "p1", copies: ["id"], note: "Translation only. The motif simply slides across and down, always facing the same way." },
+    "10": { name: "p4", copies: ["id", "r90", "r180", "r270"], note: "Four quarter-turns around the center of each unit. The motifs spin like a pinwheel, with no mirror lines." },
+    "01": { name: "pmm", copies: ["id", "mx", "my", "r180"], note: "Two perpendicular mirrors through each unit. Notice the motifs now face each other." },
+    "11": { name: "p4m", copies: ["id", "r90", "r180", "r270", "mx", "my", "d1", "d2"], note: "Rotation and reflection together give full square symmetry. The eight-pointed star patterns in Station 4 have this symmetry." },
+  };
+  function motif(ctx) {
+    // a half-palmette leaf in the unit square, kept below the diagonal so every copy is distinct
+    ctx.beginPath();
+    ctx.moveTo(0.16, 0.08);
+    ctx.bezierCurveTo(0.42, 0.02, 0.78, 0.10, 0.92, 0.36);
+    ctx.bezierCurveTo(0.70, 0.30, 0.56, 0.38, 0.50, 0.46);
+    ctx.bezierCurveTo(0.44, 0.30, 0.30, 0.18, 0.16, 0.08);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath(); ctx.arc(0.62, 0.20, 0.055, 0, TAU); ctx.fill();
+  }
+  const symRot = document.getElementById("symRot"), symRef = document.getElementById("symRef");
+  const symS = surface("symCanvas", (ctx, w, h) => {
+    const g = GROUPS[(symRot.checked ? "1" : "0") + (symRef.checked ? "1" : "0")];
+    const c = Math.max(70, Math.min(120, w / 5.5)), half = c / 2;
+    ctx.save(); ctx.translate(w / 2, h / 2);
+    const n = Math.ceil(Math.max(w, h) / c / 2) + 1;
+    // cell lines
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+    for (let i = -n; i <= n; i++) {
+      ctx.beginPath(); ctx.moveTo(i * c - half, -h); ctx.lineTo(i * c - half, h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-w, i * c - half); ctx.lineTo(w, i * c - half); ctx.stroke();
+    }
+    for (let i = -n; i <= n; i++) for (let j = -n; j <= n; j++) {
+      const home = i === 0 && j === 0;
+      g.copies.forEach((key, idx) => {
+        const m = T[key];
+        ctx.save();
+        ctx.translate(i * c, j * c);
+        ctx.transform(m[0], m[1], m[2], m[3], 0, 0);
+        ctx.scale(half * 0.96, half * 0.96);
+        ctx.fillStyle = home ? (idx === 0 ? C.lapis : C.glaze) : C.muted;
+        ctx.globalAlpha = home ? 1 : 0.55;
+        motif(ctx);
+        ctx.restore();
+      });
+    }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = C.ochre; ctx.lineWidth = 2.5;
+    ctx.strokeRect(-half, -half, c, c);
+    ctx.restore();
+  });
+  function updateSym() {
+    const g = GROUPS[(symRot.checked ? "1" : "0") + (symRef.checked ? "1" : "0")];
+    const moves = ["Translate"].concat(symRot.checked ? ["Rotate"] : [], symRef.checked ? ["Reflect"] : []);
+    document.getElementById("symReadout").innerHTML =
+      `<div><dt>Moves</dt><dd style="font-size:15px">${moves.join(" + ")}</dd></div>` +
+      `<div><dt>Copies per unit</dt><dd>${g.copies.length}</dd></div>` +
+      `<div><dt>Symmetry group</dt><dd>${g.name}</dd></div>`;
+    document.getElementById("symNote").textContent = g.note;
+    document.getElementById("symTag").textContent = "dark blue = original · teal = its copies · gold square = repeat unit";
+    symS.render();
+  }
+  symRot.addEventListener("change", updateSym); symRef.addEventListener("change", updateSym);
+  updateSym();
+
+  // ---------- Station 4: stars ----------
+  let starKey = "4.8.8";
+  const angle = document.getElementById("starAngle"), angleVal = document.getElementById("starAngleVal");
+  const showGrid = document.getElementById("starGrid"), band = document.getElementById("starBand"), playBtn = document.getElementById("starPlay");
+  const starS = surface("starCanvas", (ctx, w, h) => {
+    ctx.save(); ctx.translate(w / 2, h / 2);
+    const s = Math.max(32, Math.min(60, w / 10)), hw = w / 2, hh = h / 2;
+    const polys = visible(TILINGS[starKey].gen(s, hw, hh), hw, hh, s * 3);
+    if (showGrid.checked) drawGrid(ctx, polys, { stroke: C.ochre, lw: 1 });
+    drawHankin(ctx, hankin(polys, +angle.value), band.checked, C.lapis, C.surface, 2.4);
+    ctx.restore();
+  });
+  function updateStar() {
+    angleVal.textContent = (+angle.value).toFixed(1) + "°";
+    document.getElementById("starTag").textContent = `${starKey} grid · lines at ${(+angle.value).toFixed(1)}° from each edge`;
+    starS.render();
+  }
+  segmented("starGridPick", Object.keys(TILINGS).map(k => ({ key: k, label: TILINGS[k].label })), starKey, k => { starKey = k; updateStar(); });
+  [angle, showGrid, band].forEach(el => el.addEventListener("input", updateStar));
+  let playing = false, dir = 1, raf = 0;
+  playBtn.addEventListener("click", () => {
+    playing = !playing; playBtn.textContent = playing ? "Stop" : "Sweep the angle";
+    if (playing) {
+      let last = performance.now();
+      const step = now => {
+        if (!playing) return;
+        let v = +angle.value + dir * (now - last) * 0.012; last = now;
+        if (v >= 85) { v = 85; dir = -1; } if (v <= 20) { v = 20; dir = 1; }
+        angle.value = v; updateStar(); raf = requestAnimationFrame(step);
+      };
+      raf = requestAnimationFrame(step);
+    } else cancelAnimationFrame(raf);
+  });
+  updateStar();
+
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(renderAll);
+})();
+</script>
+</body>
+</html>
